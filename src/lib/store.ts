@@ -165,10 +165,17 @@ function multiYearStatus(card: UserCard, benefit: Benefit, usage: UsageEntry[], 
   };
 }
 
+/** False once a limited-time credit's last day has passed. */
+export function isActive(b: Benefit, today: Date): boolean {
+  if (!b.endsAfter) return true;
+  const [y, m, d] = b.endsAfter.split('-').map(Number);
+  return today <= new Date(y, m - 1, d, 23, 59, 59);
+}
+
 export function allStatuses(state: AppState, today: Date): BenefitStatus[] {
   return state.cards.flatMap((card) =>
     card.benefits
-      .filter((b) => !card.hiddenBenefitIds.includes(b.id))
+      .filter((b) => !card.hiddenBenefitIds.includes(b.id) && isActive(b, today))
       .map((b) => benefitStatus(card, b, state.usage, today)),
   );
 }

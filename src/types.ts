@@ -26,6 +26,8 @@ export interface Benefit {
    * use it, so frequency/resetBasis are ignored when this is set.
    */
   everyYears?: number;
+  /** Last day the credit exists (YYYY-MM-DD), for limited-time credits. Hidden after that. */
+  endsAfter?: string;
   /** A certificate or perk with an estimated value (e.g. a free night), not a fixed statement credit. */
   estimated?: boolean;
   /** Per-month amount overrides for monthly benefits, e.g. { 12: 35 } for a bigger December Uber credit. */
