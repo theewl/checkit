@@ -72,3 +72,21 @@ describe('foldLine', () => {
     expect(folded.replace(/\r\n /g, '')).toBe('DESCRIPTION:' + '• credit — '.repeat(30));
   });
 });
+
+describe('multi-year credits', () => {
+  it('starts a cycle on first use and reopens after it', async () => {
+    const { benefitStatus } = await import('./store');
+    const card = {
+      id: 'c', catalogId: null, name: 'X', issuer: 'Y', color: '#000', annualFee: 0,
+      anniversaryMonth: 1, hiddenBenefitIds: [],
+      benefits: [{ id: 'ge', name: 'Global Entry', amount: 120, frequency: 'annual' as const, everyYears: 4, category: 'travel' as const }],
+    };
+    const b = card.benefits[0];
+    expect(benefitStatus(card, b, [], d(2026, 11, 1)).remaining).toBe(120);
+    const usage = [{ id: 'u', cardId: 'c', benefitId: 'ge', periodKey: 'open', amount: 120, date: d(2026, 11, 1).toISOString() }];
+    const used = benefitStatus(card, b, usage, d(2028, 5, 1));
+    expect(used.remaining).toBe(0);
+    expect(used.period.end).toEqual(d(2030, 10, 31));
+    expect(benefitStatus(card, b, usage, d(2030, 11, 1)).remaining).toBe(120);
+  });
+});

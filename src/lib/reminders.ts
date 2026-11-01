@@ -110,7 +110,8 @@ export function buildIcs(state: AppState, today: Date): string {
 
   for (const card of state.cards) {
     for (const b of card.benefits) {
-      if (card.hiddenBenefitIds.includes(b.id)) continue;
+      // Multi-year credits have no fixed reset date to remind about.
+      if (card.hiddenBenefitIds.includes(b.id) || b.everyYears) continue;
       const anniversary = b.frequency === 'annual' && b.resetBasis === 'anniversary';
       const key = `${card.id}|${b.frequency}|${anniversary}`;
       if (!groups.has(key)) groups.set(key, { card, frequency: b.frequency, anniversary, lines: [] });

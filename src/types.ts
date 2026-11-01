@@ -21,6 +21,13 @@ export interface Benefit {
   amount: number;
   frequency: Frequency;
   resetBasis?: ResetBasis;
+  /**
+   * Multi-year credits (e.g. Global Entry every 4 years). The cycle starts when you
+   * use it, so frequency/resetBasis are ignored when this is set.
+   */
+  everyYears?: number;
+  /** A certificate or perk with an estimated value (e.g. a free night), not a fixed statement credit. */
+  estimated?: boolean;
   /** Per-month amount overrides for monthly benefits, e.g. { 12: 35 } for a bigger December Uber credit. */
   monthOverrides?: Record<number, number>;
   category: Category;
@@ -50,6 +57,8 @@ export interface UserCard {
   anniversaryMonth: number;
   benefits: Benefit[];
   hiddenBenefitIds: string[];
+  /** Catalog benefit ids (and '__fee') the user edited, which catalog updates must not overwrite. */
+  editedIds?: string[];
 }
 
 export interface UsageEntry {

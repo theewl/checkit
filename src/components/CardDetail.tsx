@@ -105,8 +105,13 @@ function EditCard({
         : [...card.hiddenBenefitIds, id],
     });
 
+  const markEdited = (id: string) => [...new Set([...(card.editedIds ?? []), id])];
   const setAmount = (id: string, amount: number) =>
-    onChange({ ...card, benefits: card.benefits.map((b) => (b.id === id ? { ...b, amount, monthOverrides: undefined } : b)) });
+    onChange({
+      ...card,
+      editedIds: markEdited(id),
+      benefits: card.benefits.map((b) => (b.id === id ? { ...b, amount, monthOverrides: undefined } : b)),
+    });
 
   const addBenefit = () => {
     if (!draft.name?.trim() || !draft.amount || draft.amount <= 0) return;
@@ -140,7 +145,7 @@ function EditCard({
           type="number"
           min="0"
           value={card.annualFee}
-          onChange={(e) => onChange({ ...card, annualFee: Number(e.target.value) || 0 })}
+          onChange={(e) => onChange({ ...card, annualFee: Number(e.target.value) || 0, editedIds: markEdited('__fee') })}
         />
       </label>
 
@@ -155,8 +160,8 @@ function EditCard({
                 {b.name}
                 <br />
                 <span className="muted small">
-                  {FREQUENCY_LABEL[b.frequency]}
-                  {b.resetBasis === 'anniversary' ? ' (anniversary)' : ''}
+                  {b.everyYears ? `Every ${b.everyYears} years` : FREQUENCY_LABEL[b.frequency]}
+                  {!b.everyYears && b.resetBasis === 'anniversary' ? ' (anniversary)' : ''}
                   {b.monthOverrides ? ' · varies by month' : ''}
                 </span>
               </span>
