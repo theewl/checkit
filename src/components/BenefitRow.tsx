@@ -38,13 +38,14 @@ export function BenefitRow({ status, showCard, remindDays, onLog, onUndo }: Prop
           )}
           <strong>{benefit.name}</strong>
           <span className="muted small">
-            {FREQUENCY_LABEL[benefit.frequency]} · {period.label}
+            {benefit.everyYears ? period.label : `${FREQUENCY_LABEL[benefit.frequency]} · ${period.label}`}
+            {benefit.estimated ? ' · estimated value' : ''}
           </span>
         </div>
         <div className="benefit-amount">
-          <span className={done ? 'ok' : ''}>{done ? 'Used ✓' : `${money(remaining)} left`}</span>
+          <span className={done ? 'ok' : ''}>{done ? 'Used ✓' : `${benefit.estimated ? '~' : ''}${money(remaining)} left`}</span>
           <span className={`small ${urgent ? 'warn' : 'muted'}`}>
-            {done ? `${money(available)} captured` : daysLeft === 0 ? 'Expires today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}
+            {done ? `${money(available)} captured` : daysLeft > 100_000 ? 'No deadline' : daysLeft === 0 ? 'Expires today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}
           </span>
         </div>
       </div>
