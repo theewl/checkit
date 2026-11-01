@@ -67,13 +67,21 @@ export function useAppState() {
   return [state, update] as const;
 }
 
-export function cardFromCatalog(catalogId: string, anniversaryMonth: number): UserCard | null {
+/** "Gold Card", then "Gold Card 2", "Gold Card 3"… so duplicate cards can be told apart. */
+export function uniqueName(base: string, existing: string[]): string {
+  if (!existing.includes(base)) return base;
+  let n = 2;
+  while (existing.includes(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
+}
+
+export function cardFromCatalog(catalogId: string, anniversaryMonth: number, existingNames: string[] = []): UserCard | null {
   const c = findCatalogCard(catalogId);
   if (!c) return null;
   return {
     id: uid(),
     catalogId: c.id,
-    name: c.name,
+    name: uniqueName(c.name, existingNames),
     issuer: c.issuer,
     color: c.color,
     annualFee: c.annualFee,

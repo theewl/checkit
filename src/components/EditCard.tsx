@@ -53,6 +53,10 @@ export function EditCard({
   return (
     <div className="stack edit">
       <label>
+        Card name
+        <input value={card.name} onChange={(e) => onChange({ ...card, name: e.target.value })} placeholder="e.g. Gold – Mine" />
+      </label>
+      <label>
         Account anniversary month
         <select value={card.anniversaryMonth} onChange={(e) => onChange({ ...card, anniversaryMonth: Number(e.target.value) })}>
           {MONTH_NAMES.map((m, i) => (
