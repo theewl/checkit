@@ -125,3 +125,16 @@ describe('catalog', () => {
     expect(kept.benefits[0].amount).toBe(50);
   });
 });
+
+describe('duplicate cards', () => {
+  it('numbers duplicate card names', async () => {
+    const { cardFromCatalog, syncWithCatalog } = await import('./store');
+    const first = cardFromCatalog('amex-gold', 1)!;
+    const second = cardFromCatalog('amex-gold', 1, [first.name])!;
+    const third = cardFromCatalog('amex-gold', 1, [first.name, second.name])!;
+    expect([first.name, second.name, third.name]).toEqual(['Gold Card', 'Gold Card 2', 'Gold Card 3']);
+    expect(first.id).not.toBe(second.id);
+    // Catalog sync must keep a renamed card's name.
+    expect(syncWithCatalog({ ...second, name: 'Gold – Partner' }).name).toBe('Gold – Partner');
+  });
+});

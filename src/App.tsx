@@ -210,7 +210,7 @@ export default function App() {
           ownedCatalogIds={state.cards.map((c) => c.catalogId ?? '')}
           onClose={() => setAdding(false)}
           onAdd={(id, month) => {
-            const card = cardFromCatalog(id, month);
+            const card = cardFromCatalog(id, month, state.cards.map((c) => c.name));
             if (card) addCard(card);
           }}
           onAddCustom={addCard}

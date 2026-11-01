@@ -55,7 +55,7 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                   <li key={c.id}>
                     <button
                       className={`catalog-item ${selected === c.id ? 'selected' : ''}`}
-                      onClick={() => (needsAnniversary(c.id) ? setSelected(c.id) : onAdd(c.id, month))}
+                      onClick={() => (needsAnniversary(c.id) || owned ? setSelected(c.id) : onAdd(c.id, month))}
                     >
                       <span className="swatch" style={{ background: c.color }} />
                       <span className="grow">
@@ -75,7 +75,12 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
 
             {selected && (
               <div className="add-confirm">
-                {(
+                {ownedCatalogIds.includes(selected) && (
+                  <p className="notice small">
+                    You already added this card. Add another one (for example a second account or a partner's card)?
+                  </p>
+                )}
+                {needsAnniversary(selected) && (
                   <label>
                     When did you open this card? (month)
                     <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
@@ -89,7 +94,7 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                   </label>
                 )}
                 <button className="btn" onClick={() => onAdd(selected, month)}>
-                  Add card
+                  {ownedCatalogIds.includes(selected) ? 'Add another' : 'Add card'}
                 </button>
               </div>
             )}
