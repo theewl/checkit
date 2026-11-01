@@ -1,90 +1,13 @@
 import { useState } from 'react';
 import type { Benefit, Category, Frequency, UserCard } from '../types';
-import { FREQUENCY_LABEL, yearlyValue } from '../lib/periods';
-import { money, uid, type BenefitStatus } from '../lib/store';
-import { BenefitRow } from './BenefitRow';
+import { FREQUENCY_LABEL } from '../lib/periods';
+import { uid } from '../lib/store';
 import { MONTH_NAMES } from './util';
-
-interface Props {
-  card: UserCard;
-  statuses: BenefitStatus[];
-  capturedThisYear: number;
-  remindDays: number;
-  onChange: (card: UserCard) => void;
-  onRemove: () => void;
-  onLog: (s: BenefitStatus, amount: number) => void;
-  onUndo: (entryId: string) => void;
-}
 
 const CATEGORIES: Category[] = ['dining', 'rideshare', 'travel', 'hotel', 'airline', 'entertainment', 'shopping', 'fitness', 'other'];
 
-export function CardDetail({ card, statuses, capturedThisYear, remindDays, onChange, onRemove, onLog, onUndo }: Props) {
-  const [editing, setEditing] = useState(card.benefits.length === 0);
-  const visible = card.benefits.filter((b) => !card.hiddenBenefitIds.includes(b.id));
-  const yearly = visible.reduce((s, b) => s + yearlyValue(b), 0);
-  const fee = card.annualFee;
-
-  return (
-    <section className="card-panel">
-      <div className="card-face" style={{ background: `linear-gradient(135deg, ${card.color}, #111a)` }}>
-        <div>
-          <div className="small">{card.issuer}</div>
-          <div className="card-name">{card.name}</div>
-        </div>
-        <div className="card-stats">
-          <div>
-            <div className="small">Captured {new Date().getFullYear()}</div>
-            <div className="big">{money(capturedThisYear)}</div>
-          </div>
-          <div>
-            <div className="small">Credits / yr</div>
-            <div className="big">{money(yearly)}</div>
-          </div>
-          {fee > 0 && (
-            <div>
-              <div className="small">Fee</div>
-              <div className="big">{money(fee)}</div>
-            </div>
-          )}
-        </div>
-        {fee > 0 && (
-          <div className="fee-bar" title="Progress toward earning back the annual fee">
-            <div style={{ width: `${Math.min(100, (capturedThisYear / fee) * 100)}%` }} />
-            <span className="small">
-              {capturedThisYear >= fee ? 'Annual fee earned back 🎉' : `${money(fee - capturedThisYear)} more to earn back the fee`}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {!editing ? (
-        <>
-          <div className="list">
-            {statuses.map((s) => (
-              <BenefitRow
-                key={s.benefit.id}
-                status={s}
-                remindDays={remindDays}
-                onLog={(amt) => onLog(s, amt)}
-                onUndo={onUndo}
-              />
-            ))}
-            {statuses.length === 0 && <p className="muted center">No credits tracked on this card yet.</p>}
-          </div>
-          <div className="row">
-            <button className="btn ghost" onClick={() => setEditing(true)}>
-              Edit credits
-            </button>
-          </div>
-        </>
-      ) : (
-        <EditCard card={card} onChange={onChange} onDone={() => setEditing(false)} onRemove={onRemove} />
-      )}
-    </section>
-  );
-}
-
-function EditCard({
+/** Edit a card: anniversary month, fee, which credits to track, amounts, and custom credits. */
+export function EditCard({
   card,
   onChange,
   onDone,
@@ -154,7 +77,7 @@ function EditCard({
       <ul className="edit-list">
         {card.benefits.map((b) => (
           <li key={b.id}>
-            <label className="check">
+            <label className="check-label">
               <input type="checkbox" checked={!card.hiddenBenefitIds.includes(b.id)} onChange={() => toggle(b.id)} />
               <span className="grow">
                 {b.name}

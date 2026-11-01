@@ -55,7 +55,7 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                   <li key={c.id}>
                     <button
                       className={`catalog-item ${selected === c.id ? 'selected' : ''}`}
-                      onClick={() => setSelected(c.id)}
+                      onClick={() => (needsAnniversary(c.id) ? setSelected(c.id) : onAdd(c.id, month))}
                     >
                       <span className="swatch" style={{ background: c.color }} />
                       <span className="grow">
@@ -63,7 +63,7 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                         <span className="muted small"> · {c.issuer}</span>
                         <br />
                         <span className="muted small">
-                          {c.benefits.length} credits · {money(value)}/yr in credits · {money(c.annualFee)} fee
+                          {c.benefits.length} credit{c.benefits.length === 1 ? '' : 's'} · about {money(Math.round(value))}/yr
                           {owned ? ' · already added' : ''}
                         </span>
                       </span>
@@ -75,9 +75,9 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
 
             {selected && (
               <div className="add-confirm">
-                {needsAnniversary(selected) && (
+                {(
                   <label>
-                    Account anniversary month
+                    When did you open this card? (month)
                     <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
                       {MONTH_NAMES.map((m, i) => (
                         <option key={m} value={i + 1}>
@@ -85,7 +85,7 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                         </option>
                       ))}
                     </select>
-                    <span className="muted small">Some credits on this card reset on your card's anniversary.</span>
+                    <span className="muted small">Some of this card's credits reset on your card anniversary.</span>
                   </label>
                 )}
                 <button className="btn" onClick={() => onAdd(selected, month)}>
