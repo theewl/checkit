@@ -1,52 +1,49 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AddCard } from './components/AddCard';
-import { BenefitRow } from './components/BenefitRow';
-import { CardDetail } from './components/CardDetail';
+import { CreditRow } from './components/CreditRow';
+import { EditCard } from './components/EditCard';
 import { Settings } from './components/Settings';
-import { expiringSoon, sendDueNotifications } from './lib/reminders';
+import { sendDueNotifications } from './lib/reminders';
 import { allStatuses, cardFromCatalog, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
 import type { UserCard } from './types';
 
-type Tab = 'overview' | 'cards' | 'settings';
-
 export default function App() {
   const [state, update] = useAppState();
-  const [tab, setTab] = useState<Tab>('overview');
   const [adding, setAdding] = useState(false);
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [today, setToday] = useState(() => new Date());
 
-  // Roll over to new periods if the app stays open past midnight.
+  // Credits reset on their own: re-check the date hourly and whenever the app comes back to the foreground.
   useEffect(() => {
-    const t = setInterval(() => setToday(new Date()), 60 * 60 * 1000);
-    return () => clearInterval(t);
+    const tick = () => setToday(new Date());
+    const t = setInterval(tick, 60 * 60 * 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', tick);
+    };
   }, []);
 
-  const statuses = useMemo(() => allStatuses(state, today), [state, today]);
-  const soon = useMemo(() => expiringSoon(statuses, state.settings.remindDaysBefore), [statuses, state.settings.remindDaysBefore]);
-  const open = statuses.filter((s) => s.remaining > 0 && !soon.includes(s)).sort((a, b) => a.daysLeft - b.daysLeft);
-  const done = statuses.filter((s) => s.remaining <= 0);
-
-  const year = today.getFullYear();
-  const capturedByCard = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const u of state.usage) {
-      if (new Date(u.date).getFullYear() !== year) continue;
-      m.set(u.cardId, round2((m.get(u.cardId) ?? 0) + u.amount));
-    }
-    return m;
-  }, [state.usage, year]);
-  const capturedTotal = [...capturedByCard.values()].reduce((a, b) => a + b, 0);
-  const availableNow = statuses.reduce((s, x) => s + x.remaining, 0);
-  const soonTotal = soon.reduce((s, x) => s + x.remaining, 0);
-  const fees = state.cards.reduce((s, c) => s + c.annualFee, 0);
-
-  // Browser notifications for credits about to expire.
   useEffect(() => {
     const sent = sendDueNotifications(state, today);
     if (sent.length) update((s) => ({ ...s, notified: [...s.notified, ...sent].slice(-500) }));
   }, [state, today, update]);
+
+  const remindDays = state.settings.remindDaysBefore;
+  const all = useMemo(() => allStatuses(state, today), [state, today]);
+  const shown = filter ? all.filter((s) => s.card.id === filter) : all;
+  const todo = shown
+    .filter((s) => s.remaining > 0)
+    .sort((a, b) => a.daysLeft - b.daysLeft || b.remaining - a.remaining);
+  const done = shown.filter((s) => s.remaining <= 0);
+
+  const left = shown.reduce((s, x) => s + x.remaining, 0);
+  const total = shown.reduce((s, x) => s + x.available, 0);
+  const soon = todo.filter((s) => s.daysLeft <= remindDays);
+  const soonAmount = soon.reduce((s, x) => s + x.remaining, 0);
 
   const log = (s: BenefitStatus, amount: number) =>
     update((st) => ({
@@ -56,28 +53,19 @@ export default function App() {
         { id: uid(), cardId: s.card.id, benefitId: s.benefit.id, periodKey: s.period.key, amount: round2(amount), date: new Date().toISOString() },
       ],
     }));
-  const undo = (entryId: string) => update((st) => ({ ...st, usage: st.usage.filter((u) => u.id !== entryId) }));
+  const clear = (ids: string[]) => update((st) => ({ ...st, usage: st.usage.filter((u) => !ids.includes(u.id)) }));
 
-  const saveCard = (card: UserCard) => update((st) => ({ ...st, cards: st.cards.map((c) => (c.id === card.id ? card : c)) }));
   const addCard = (card: UserCard) => {
     update((st) => ({ ...st, cards: [...st.cards, card] }));
     setAdding(false);
-    setActiveCardId(card.id);
-    setTab('cards');
+    // A custom card starts empty, so open it for adding credits.
+    if (card.benefits.length === 0) {
+      setEditingId(card.id);
+      setMenuOpen(true);
+    }
   };
 
-  const activeCard = state.cards.find((c) => c.id === activeCardId) ?? state.cards[0];
-
-  const row = (s: BenefitStatus) => (
-    <BenefitRow
-      key={`${s.card.id}:${s.benefit.id}`}
-      status={s}
-      showCard
-      remindDays={state.settings.remindDaysBefore}
-      onLog={(amt) => log(s, amt)}
-      onUndo={undo}
-    />
-  );
+  const editing = state.cards.find((c) => c.id === editingId);
 
   return (
     <div className="app">
@@ -85,117 +73,137 @@ export default function App() {
         <h1>
           <span className="logo">✓</span> checkit
         </h1>
-        <button className="btn small" onClick={() => setAdding(true)}>
-          + Add card
-        </button>
+        <div className="row">
+          <button className="btn small" onClick={() => setAdding(true)}>
+            + Card
+          </button>
+          {state.cards.length > 0 && (
+            <button className="btn small ghost" onClick={() => setMenuOpen(true)} aria-label="Menu">
+              ☰
+            </button>
+          )}
+        </div>
       </header>
 
-      <nav className="tabs">
-        {(['overview', 'cards', 'settings'] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
-            {t === 'overview' ? 'Overview' : t === 'cards' ? 'My cards' : 'Reminders & data'}
-            {t === 'overview' && soon.length > 0 && <span className="badge">{soon.length}</span>}
+      {state.cards.length === 0 ? (
+        <div className="empty">
+          <h2>Never waste a card credit again</h2>
+          <p className="muted">Add your cards. We'll list every credit, show what's left, and reset them automatically.</p>
+          <button className="btn" onClick={() => setAdding(true)}>
+            Add your first card
           </button>
-        ))}
-      </nav>
-
-      <main>
-        {state.cards.length === 0 && tab !== 'settings' ? (
-          <div className="empty">
-            <h2>Stop leaving credits on the table</h2>
-            <p className="muted">
-              Add your credit cards and checkit preloads their credits — Uber Cash, dining, hotel, airline and more — then
-              shows what's left to use, how long you have, and reminds you before they expire.
-            </p>
-            <button className="btn" onClick={() => setAdding(true)}>
-              Add your first card
-            </button>
-          </div>
-        ) : tab === 'overview' ? (
-          <>
-            <div className="stats">
-              <div className="stat urgent">
-                <div className="small">Expiring in {state.settings.remindDaysBefore} days</div>
-                <div className="big">{money(soonTotal)}</div>
-              </div>
-              <div className="stat">
-                <div className="small">Available right now</div>
-                <div className="big">{money(availableNow)}</div>
-              </div>
-              <div className="stat">
-                <div className="small">Captured in {year}</div>
-                <div className="big">{money(capturedTotal)}</div>
-                {fees > 0 && <div className="small muted">vs {money(fees)} in fees</div>}
-              </div>
+        </div>
+      ) : (
+        <main>
+          <section className="summary">
+            <div className="summary-left">
+              <span className="big">{money(left)}</span>
+              <span className="muted"> left to use</span>
             </div>
-
-            {soon.length > 0 && (
-              <>
-                <h2 className="section">⏰ Use these soon</h2>
-                <div className="list">{soon.map(row)}</div>
-              </>
-            )}
-
-            <h2 className="section">Still available</h2>
-            <div className="list">
-              {open.map(row)}
-              {open.length === 0 && soon.length === 0 && <p className="muted center">Everything is used for this period. Nice!</p>}
+            <div className="bar">
+              <div style={{ width: `${total ? ((total - left) / total) * 100 : 0}%` }} />
             </div>
+            <div className="muted small">
+              {money(round2(total - left))} of {money(total)} used
+              {soon.length > 0 && (
+                <>
+                  {' · '}
+                  <span className="warn">
+                    {money(soonAmount)} expires within {remindDays} days
+                  </span>
+                </>
+              )}
+            </div>
+          </section>
 
-            {done.length > 0 && (
-              <>
-                <button className="link section" onClick={() => setShowDone((v) => !v)}>
-                  {showDone ? '▾' : '▸'} Used this period ({done.length})
-                </button>
-                {showDone && <div className="list">{done.map(row)}</div>}
-              </>
-            )}
-          </>
-        ) : tab === 'cards' ? (
-          <>
-            <div className="card-picker">
+          {state.cards.length > 1 && (
+            <div className="filters">
+              <button className={!filter ? 'active' : ''} onClick={() => setFilter(null)}>
+                All cards
+              </button>
               {state.cards.map((c) => (
-                <button
-                  key={c.id}
-                  className={`card-pill ${activeCard?.id === c.id ? 'active' : ''}`}
-                  style={{ borderColor: c.color }}
-                  onClick={() => setActiveCardId(c.id)}
-                >
-                  <span className="swatch" style={{ background: c.color }} />
+                <button key={c.id} className={filter === c.id ? 'active' : ''} onClick={() => setFilter(c.id)}>
+                  <span className="dot" style={{ background: c.color }} />
                   {c.name}
                 </button>
               ))}
             </div>
-            {activeCard && (
-              <CardDetail
-                key={activeCard.id}
-                card={activeCard}
-                statuses={statuses.filter((s) => s.card.id === activeCard.id)}
-                capturedThisYear={capturedByCard.get(activeCard.id) ?? 0}
-                remindDays={state.settings.remindDaysBefore}
-                onChange={saveCard}
+          )}
+
+          <h2 className="section">To use</h2>
+          {todo.length > 0 ? (
+            <ul className="credits">
+              {todo.map((s) => (
+                <CreditRow key={`${s.card.id}:${s.benefit.id}`} status={s} remindDays={remindDays} onLog={(a) => log(s, a)} onClear={clear} />
+              ))}
+            </ul>
+          ) : (
+            <p className="muted center">All used. Nice! 🎉</p>
+          )}
+
+          {done.length > 0 && (
+            <>
+              <button className="link section" onClick={() => setShowDone((v) => !v)}>
+                {showDone ? '▾' : '▸'} Used ({done.length})
+              </button>
+              {showDone && (
+                <ul className="credits">
+                  {done.map((s) => (
+                    <CreditRow key={`${s.card.id}:${s.benefit.id}`} status={s} remindDays={remindDays} onLog={(a) => log(s, a)} onClear={clear} />
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          <p className="muted small center hint">Tap ○ when you use a credit. Tap a credit for details.</p>
+        </main>
+      )}
+
+      {menuOpen && (
+        <div className="modal-backdrop" onClick={() => setMenuOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Menu">
+            <div className="modal-head">
+              <h2>{editing ? editing.name : 'Menu'}</h2>
+              <button className="btn ghost small" onClick={() => (editing ? setEditingId(null) : setMenuOpen(false))} aria-label="Close">
+                {editing ? '← Back' : '✕'}
+              </button>
+            </div>
+            {editing ? (
+              <EditCard
+                key={editing.id}
+                card={editing}
+                onChange={(card) => update((st) => ({ ...st, cards: st.cards.map((c) => (c.id === card.id ? card : c)) }))}
+                onDone={() => setEditingId(null)}
                 onRemove={() => {
                   update((st) => ({
                     ...st,
-                    cards: st.cards.filter((c) => c.id !== activeCard.id),
-                    usage: st.usage.filter((u) => u.cardId !== activeCard.id),
+                    cards: st.cards.filter((c) => c.id !== editing.id),
+                    usage: st.usage.filter((u) => u.cardId !== editing.id),
                   }));
-                  setActiveCardId(null);
+                  if (filter === editing.id) setFilter(null);
+                  setEditingId(null);
                 }}
-                onLog={log}
-                onUndo={undo}
               />
+            ) : (
+              <>
+                <h3>Your cards</h3>
+                <ul className="card-list">
+                  {state.cards.map((c) => (
+                    <li key={c.id}>
+                      <button onClick={() => setEditingId(c.id)}>
+                        <span className="dot" style={{ background: c.color }} />
+                        <span className="grow">{c.name}</span>
+                        <span className="muted small">Edit ›</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <Settings state={state} update={update} />
+              </>
             )}
-          </>
-        ) : (
-          <Settings state={state} update={update} />
-        )}
-      </main>
-
-      <footer className="muted small center">
-        Credit amounts change often — check your card's benefits page and edit anything that differs. Data stays on this
-        device.
-      </footer>
+          </div>
+        </div>
+      )}
 
       {adding && (
         <AddCard
