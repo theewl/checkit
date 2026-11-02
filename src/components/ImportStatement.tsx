@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fileHash, findAnnualFee, readTransactions, suggestMatches, type Suggestion } from '../lib/importCsv';
+import { findAnnualFee, readTransactions, suggestMatches, type Suggestion } from '../lib/importCsv';
 import { getBenefitPeriod } from '../lib/periods';
 import { MONTH_NAMES } from './util';
 import { displayName, money, round2 } from '../lib/store';
@@ -7,9 +7,10 @@ import type { UsageEntry, UserCard } from '../types';
 
 interface Props {
   cards: UserCard[];
-  importedFiles: string[];
+  /** Ids of usage entries already recorded, to skip credits imported before. */
+  existingIds: Set<string>;
   /** anniversaryMonth is set when the statement's annual fee showed a different anniversary. */
-  onImport: (entries: UsageEntry[], fileId: string, anniversaryMonth?: number) => void;
+  onImport: (cardId: string, entries: UsageEntry[], anniversaryMonth?: number) => void;
   onClose: () => void;
 }
 
@@ -21,10 +22,9 @@ const HOW_TO: [string, string][] = [
 ];
 
 /** Pick a card, choose a downloaded CSV, review the statement credits found, and add them. */
-export function ImportStatement({ cards, importedFiles, onImport, onClose }: Props) {
+export function ImportStatement({ cards, existingIds, onImport, onClose }: Props) {
   const [cardId, setCardId] = useState(cards[0]?.id ?? '');
   const [rows, setRows] = useState<Suggestion[] | null>(null);
-  const [fileId, setFileId] = useState('');
   const [error, setError] = useState('');
   const [feeMonth, setFeeMonth] = useState<number | null>(null);
   const [useFeeMonth, setUseFeeMonth] = useState(true);
@@ -34,19 +34,12 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
     setError('');
     setRows(null);
     const text = await f.text();
-    // Include the card so the same file can't be applied twice to one card.
-    const id = `${cardId}:${fileHash(text)}`;
-    if (importedFiles.includes(id)) {
-      setError('You already imported this file for this card.');
-      return;
-    }
     try {
       const txns = readTransactions(text);
       const fee = findAnnualFee(txns);
       setFeeMonth(fee ? fee.date.getMonth() + 1 : null);
       setUseFeeMonth(true);
-      setRows(suggestMatches(card!, txns));
-      setFileId(id);
+      setRows(suggestMatches(card!, txns, existingIds));
     } catch (e) {
       setError(`Couldn't read that file. Make sure it's a CSV export of card transactions. (${(e as Error).message})`);
     }
@@ -58,11 +51,11 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
   const confirm = () => {
     if (!card) return;
     const anniversary = feeChanges && useFeeMonth ? feeMonth! : card.anniversaryMonth;
-    const entries: UsageEntry[] = chosen.map((r, i) => {
+    const entries: UsageEntry[] = chosen.map((r) => {
       const b = card.benefits.find((x) => x.id === r.benefitId)!;
       const periodKey = b.oneTime ? 'once' : b.everyYears ? 'open' : getBenefitPeriod(b, r.txn.date, anniversary).key;
       return {
-        id: `imp-${fileId}-${i}`,
+        id: r.key,
         cardId: card.id,
         benefitId: b.id,
         periodKey,
@@ -71,7 +64,7 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
         note: r.txn.description,
       };
     });
-    onImport(entries, fileId, feeChanges && useFeeMonth ? feeMonth! : undefined);
+    onImport(card.id, entries, feeChanges && useFeeMonth ? feeMonth! : undefined);
   };
 
   return (
@@ -143,6 +136,7 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
               <>
                 <h3>
                   Found {rows.length} statement credit{rows.length === 1 ? '' : 's'}
+                  {rows.some((r) => r.already) ? ` (${rows.filter((r) => r.already).length} already added)` : ''}
                 </h3>
                 <p className="muted small">Check each one is matched to the right credit, or choose "Skip".</p>
                 <ul className="import-list">
@@ -156,6 +150,9 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
                         </span>
                         <strong>{money(r.txn.amount)}</strong>
                       </div>
+                      {r.already ? (
+                        <span className="muted small">✓ Already checked off from an earlier import</span>
+                      ) : (
                       <select
                         value={r.benefitId ?? ''}
                         onChange={(e) =>
@@ -171,6 +168,7 @@ export function ImportStatement({ cards, importedFiles, onImport, onClose }: Pro
                             </option>
                           ))}
                       </select>
+                      )}
                     </li>
                   ))}
                 </ul>

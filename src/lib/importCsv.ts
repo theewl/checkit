@@ -114,7 +114,8 @@ export function readTransactions(text: string): Txn[] {
 
   // Single Amount column: issuers disagree on the sign of charges (Amex +, Chase -).
   // Best signal: a card payment always reduces the balance, so it has the credit sign.
-  // Next: a Type column marking purchases as "Sale" (Chase). Last resort: purchases are
+  // Next: a Type column marking purchases as "Sale" (Chase), then the sign of rows that
+  // mention "credit". Last resort: purchases are
   // usually the majority, so the minority sign is credits.
   const signedRows = raw.filter((t) => t.signed !== 0);
   if (signedRows.length) {
@@ -123,8 +124,12 @@ export function readTransactions(text: string): Txn[] {
     const saleRow = iType >= 0 ? rows.slice(hi + 1).find((r) => /^sale$/i.test((r[iType] ?? '').trim())) : undefined;
     const saleSign = saleRow ? parseAmount(saleRow[iAmt]) : null;
     let chargesPositive: boolean;
+    const creditish = signedRows.filter((t) => CREDIT_WORDS.test(t.description));
+    const creditNeg = creditish.filter((t) => t.signed < 0).length;
     if (payment) chargesPositive = payment.signed < 0;
     else if (saleSign) chargesPositive = saleSign > 0;
+    // Rows that say "credit" are almost always credits, so they reveal the credit sign.
+    else if (creditish.length && creditNeg !== creditish.length - creditNeg) chargesPositive = creditNeg > creditish.length - creditNeg;
     else {
       const positives = signedRows.filter((t) => t.signed > 0).length;
       chargesPositive = positives >= signedRows.length - positives;
@@ -200,12 +205,17 @@ function keywordsFor(b: Benefit): string[] {
 
 export interface Suggestion {
   txn: Txn;
+  /** Stable id for this transaction on this card, so overlapping files don't double count. */
+  key: string;
+  /** Already checked off by an earlier import. */
+  already?: boolean;
   /** Best-matching benefit on the card, or null if none matched. */
   benefitId: string | null;
 }
 
 /** Statement credits in the file, each with the tracked credit it most likely is. */
-export function suggestMatches(card: UserCard, txns: Txn[]): Suggestion[] {
+export function suggestMatches(card: UserCard, txns: Txn[], existingIds: Set<string> = new Set()): Suggestion[] {
+  const seen = new Map<string, number>();
   const benefits = card.benefits.filter((b) => !card.hiddenBenefitIds.includes(b.id));
   return txns
     .filter((t) => t.isCredit && CREDIT_WORDS.test(t.description) && !PAYMENT_WORDS.test(t.description))
@@ -217,7 +227,15 @@ export function suggestMatches(card: UserCard, txns: Txn[]): Suggestion[] {
           if (desc.includes(k) && (!best || k.length > best.len)) best = { id: b.id, len: k.length };
         }
       }
-      return { txn, benefitId: best?.id ?? null };
+      // Same date, amount and description = same transaction, even across files.
+      // A counter keeps genuinely repeated identical rows within one file distinct.
+      const ymd = `${txn.date.getFullYear()}${txn.date.getMonth() + 1}-${txn.date.getDate()}`;
+      const base = `imp-${card.id}-${ymd}-${Math.round(txn.amount * 100)}-${fileHash(desc.trim())}`;
+      const n = seen.get(base) ?? 0;
+      seen.set(base, n + 1);
+      const key = `${base}-${n}`;
+      const already = existingIds.has(key);
+      return { txn, key, already, benefitId: already ? null : best?.id ?? null };
     });
 }
 

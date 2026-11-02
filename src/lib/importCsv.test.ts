@@ -103,3 +103,29 @@ describe('findAnnualFee', () => {
     expect(findAnnualFee(readTransactions(csv))).toBeNull();
   });
 });
+
+describe('overlapping statements', () => {
+  it('recognises credits already imported from another file', () => {
+    const plat = cardFromCatalog('amex-platinum', 1)!;
+    const first = suggestMatches(plat, readTransactions(AMEX));
+    const overlap = `Date,Description,Amount
+11/03/2026,Platinum Digital Entertainment Credit,-25.00
+11/09/2026,TRADER JOES,30.00
+12/03/2026,Platinum Digital Entertainment Credit,-25.00`;
+    const second = suggestMatches(plat, readTransactions(overlap), new Set(first.map((s) => s.key)));
+    expect(second.map((s) => [s.already, s.benefitId])).toEqual([
+      [true, null],
+      [false, 'digital-ent'],
+    ]);
+  });
+
+  it('keeps two identical credits in one file distinct', () => {
+    const plat = cardFromCatalog('amex-platinum', 1)!;
+    const csv = `Date,Description,Amount
+07/10/2026,AMEX FHR Hotel Credit,-150.00
+07/10/2026,AMEX FHR Hotel Credit,-150.00
+07/12/2026,AUTOPAY PAYMENT - THANK YOU,-900.00`;
+    const s = suggestMatches(plat, readTransactions(csv));
+    expect(new Set(s.map((x) => x.key)).size).toBe(2);
+  });
+});

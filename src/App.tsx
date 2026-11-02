@@ -263,18 +263,17 @@ export default function App() {
       {importing && (
         <ImportStatement
           cards={state.cards}
-          importedFiles={state.importedFiles ?? []}
+          existingIds={new Set(state.usage.map((u) => u.id))}
           onClose={() => setImporting(false)}
-          onImport={(entries, fileId, anniversaryMonth) => {
-            update((st) => ({
-              ...st,
-              usage: [...st.usage, ...entries],
-              importedFiles: [...(st.importedFiles ?? []), fileId],
-              cards:
-                anniversaryMonth
-                  ? st.cards.map((c) => (c.id === fileId.split(':')[0] ? { ...c, anniversaryMonth } : c))
-                  : st.cards,
-            }));
+          onImport={(cardId, entries, anniversaryMonth) => {
+            update((st) => {
+              const have = new Set(st.usage.map((u) => u.id));
+              return {
+                ...st,
+                usage: [...st.usage, ...entries.filter((e) => !have.has(e.id))],
+                cards: anniversaryMonth ? st.cards.map((c) => (c.id === cardId ? { ...c, anniversaryMonth } : c)) : st.cards,
+              };
+            });
             setImporting(false);
           }}
         />
