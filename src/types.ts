@@ -79,6 +79,8 @@ export interface UsageEntry {
 export interface Settings {
   /** Remind when a period ends within this many days and money is left. */
   remindDaysBefore: number;
+  /** List credits grouped by card (default) or as one list by soonest deadline. */
+  sortBy?: 'card' | 'due';
   notificationsEnabled: boolean;
 }
 

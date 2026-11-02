@@ -33,6 +33,7 @@ export default function App() {
   }, [state, today, update]);
 
   const remindDays = state.settings.remindDaysBefore;
+  const sortBy = state.settings.sortBy ?? 'card';
   const all = useMemo(() => allStatuses(state, today), [state, today]);
   const shown = filter ? all.filter((s) => s.card.id === filter) : all;
   const todo = shown
@@ -130,15 +131,58 @@ export default function App() {
             </div>
           )}
 
-          <h2 className="section">To use</h2>
-          {todo.length > 0 ? (
+          <div className="section list-head">
+            <h2>To use</h2>
+            <div className="toggle" role="group" aria-label="Order credits">
+              {(['card', 'due'] as const).map((k) => (
+                <button
+                  key={k}
+                  className={sortBy === k ? 'active' : ''}
+                  onClick={() => update((st) => ({ ...st, settings: { ...st.settings, sortBy: k } }))}
+                >
+                  {k === 'card' ? 'By card' : 'Due soon'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {todo.length === 0 ? (
+            <p className="muted center">All used. Nice! 🎉</p>
+          ) : sortBy === 'due' ? (
             <ul className="credits">
               {todo.map((s) => (
                 <CreditRow key={`${s.card.id}:${s.benefit.id}`} status={s} remindDays={remindDays} onLog={(a) => log(s, a)} onClear={clear} />
               ))}
             </ul>
           ) : (
-            <p className="muted center">All used. Nice! 🎉</p>
+            state.cards
+              .map((card) => ({ card, items: todo.filter((s) => s.card.id === card.id) }))
+              .filter((g) => g.items.length > 0)
+              .map(({ card, items }) => (
+                <section key={card.id} className="card-group">
+                  <div className="card-head">
+                    <span className="dot" style={{ background: card.color }} />
+                    <strong className="grow">
+                      {displayName(card)}{' '}
+                      {items.some((s) => s.daysLeft <= remindDays) && (
+                        <span className="urgent-count">{items.filter((s) => s.daysLeft <= remindDays).length} expiring</span>
+                      )}
+                    </strong>
+                    <span className="muted small">{money(items.reduce((s, x) => s + x.remaining, 0))} left</span>
+                  </div>
+                  <ul className="credits">
+                    {items.map((s) => (
+                      <CreditRow
+                        key={`${s.card.id}:${s.benefit.id}`}
+                        status={s}
+                        showCard={false}
+                        remindDays={remindDays}
+                        onLog={(a) => log(s, a)}
+                        onClear={clear}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))
           )}
 
           {done.length > 0 && (

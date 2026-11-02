@@ -6,8 +6,8 @@
   --border: #e2e8f0;
   --accent: #16a34a;
   --accent-text: #ffffff;
-  --warn: #c2410c;
-  --warn-bg: #fff7ed;
+  --warn: #dc2626;
+  --warn-bg: #fef2f2;
   --danger: #dc2626;
   --track: #e2e8f0;
   color-scheme: light dark;
@@ -23,8 +23,8 @@
     --border: #23304a;
     --accent: #22c55e;
     --accent-text: #052e16;
-    --warn: #fb923c;
-    --warn-bg: #2a1a0e;
+    --warn: #f87171;
+    --warn-bg: #2b1316;
     --danger: #f87171;
     --track: #23304a;
   }
@@ -128,3 +128,17 @@ label { display: flex; flex-direction: column; gap: 5px; font-size: 0.9rem; }
 .count-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.9rem; }
 .stepper { display: flex; align-items: center; gap: 12px; }
 .stepper .btn { width: 36px; padding: 6px 0; font-size: 1.1rem; }
+
+/* Grouping */
+.list-head { display: flex; justify-content: space-between; align-items: center; }
+.toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.toggle button { border: 0; background: transparent; padding: 5px 10px; border-radius: 7px; font-size: 0.8rem; color: var(--muted); }
+.toggle button.active { background: var(--text); color: var(--bg); font-weight: 600; }
+.card-group { margin-bottom: 16px; }
+.card-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; }
+
+/* Close to deadline: red bar, tinted row, red amount */
+.credit.urgent { background: var(--warn-bg); box-shadow: inset 4px 0 0 var(--warn); }
+.credit.urgent .credit-amt { color: var(--warn); }
+.credit.urgent .mini-bar > div { background: var(--warn); }
+.urgent-count { background: var(--warn); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }

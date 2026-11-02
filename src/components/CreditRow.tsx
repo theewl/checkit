@@ -4,6 +4,8 @@ import { cardCount, displayName, money, type BenefitStatus } from '../lib/store'
 interface Props {
   status: BenefitStatus;
   remindDays: number;
+  /** Hide the card name when the row already sits under its card's heading. */
+  showCard?: boolean;
   onLog: (amount: number) => void;
   onClear: (entryIds: string[]) => void;
 }
@@ -11,7 +13,7 @@ interface Props {
 const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 /** One credit: tap the circle to mark it used, tap the row for details. */
-export function CreditRow({ status, remindDays, onLog, onClear }: Props) {
+export function CreditRow({ status, remindDays, showCard = true, onLog, onClear }: Props) {
   const { benefit, card, used, available, remaining, daysLeft, period, entries } = status;
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
@@ -49,8 +51,13 @@ export function CreditRow({ status, remindDays, onLog, onClear }: Props) {
         <button className="credit-main" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           <span className="credit-name">{benefit.name}</span>
           <span className="credit-sub">
-            <span className="dot" style={{ background: card.color }} />
-            {displayName(card)} · <span className={urgent ? 'warn' : ''}>{when}</span>
+            {showCard && (
+              <>
+                <span className="dot" style={{ background: card.color }} />
+                {displayName(card)} ·{' '}
+              </>
+            )}
+            <span className={urgent ? 'warn' : ''}>{when}</span>
           </span>
         </button>
         <span className="credit-amt">
