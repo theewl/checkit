@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { money, type BenefitStatus } from '../lib/store';
+import { cardCount, displayName, money, type BenefitStatus } from '../lib/store';
 
 interface Props {
   status: BenefitStatus;
@@ -50,7 +50,7 @@ export function CreditRow({ status, remindDays, onLog, onClear }: Props) {
           <span className="credit-name">{benefit.name}</span>
           <span className="credit-sub">
             <span className="dot" style={{ background: card.color }} />
-            {card.name} · <span className={urgent ? 'warn' : ''}>{when}</span>
+            {displayName(card)} · <span className={urgent ? 'warn' : ''}>{when}</span>
           </span>
         </button>
         <span className="credit-amt">
@@ -67,6 +67,13 @@ export function CreditRow({ status, remindDays, onLog, onClear }: Props) {
 
       {open && (
         <div className="credit-more">
+          {cardCount(card) > 1 && (
+            <p>
+              <strong>
+                {cardCount(card)} cards × {money(available / cardCount(card))} = {money(available)}
+              </strong>
+            </p>
+          )}
           {benefit.howTo && <p>{benefit.howTo}</p>}
           <p className="muted">
             {money(used)} of {money(available)} used · resets {shortDate(nextReset)}

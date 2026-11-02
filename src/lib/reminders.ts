@@ -1,5 +1,5 @@
 import type { AppState, Frequency, UserCard } from '../types';
-import { allStatuses, isActive, money, type BenefitStatus } from './store';
+import { allStatuses, cardCount, displayName, isActive, money, type BenefitStatus } from './store';
 
 /** Benefits with money left whose period ends within `days` days. Soonest first. */
 export function expiringSoon(statuses: BenefitStatus[], days: number): BenefitStatus[] {
@@ -35,7 +35,7 @@ export function sendDueNotifications(state: AppState, today: Date): string[] {
     const when = s.daysLeft === 0 ? 'today' : `in ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'}`;
     try {
       new Notification(`${money(s.remaining)} ${s.benefit.name} expires ${when}`, {
-        body: `${s.card.issuer} ${s.card.name}${s.benefit.howTo ? ` — ${s.benefit.howTo}` : ''}`,
+        body: `${s.card.issuer} ${displayName(s.card)}${s.benefit.howTo ? ` — ${s.benefit.howTo}` : ''}`,
         tag: key,
       });
       sent.push(key);
@@ -115,7 +115,7 @@ export function buildIcs(state: AppState, today: Date): string {
       const anniversary = b.frequency === 'annual' && b.resetBasis === 'anniversary';
       const key = `${card.id}|${b.frequency}|${anniversary}`;
       if (!groups.has(key)) groups.set(key, { card, frequency: b.frequency, anniversary, lines: [] });
-      groups.get(key)!.lines.push(`• ${b.name}: ${money(b.amount)}${b.howTo ? ` — ${b.howTo}` : ''}`);
+      groups.get(key)!.lines.push(`• ${b.name}: ${money(b.amount * cardCount(card))}${b.howTo ? ` — ${b.howTo}` : ''}`);
     }
   }
 
@@ -159,11 +159,11 @@ export function buildIcs(state: AppState, today: Date): string {
         `DTSTART;VALUE=DATE:${ymd(start)}`,
         `DTEND;VALUE=DATE:${ymd(end)}`,
         `RRULE:${rrule}`,
-        `SUMMARY:${icsEscape(`Use ${g.card.name} ${label} credits`)}`,
+        `SUMMARY:${icsEscape(`Use ${displayName(g.card)} ${label} credits`)}`,
         `DESCRIPTION:${icsEscape(`Credits reset in ${daysBefore} days:\n${g.lines.join('\n')}`)}`,
         'BEGIN:VALARM',
         'ACTION:DISPLAY',
-        `DESCRIPTION:${icsEscape(`${g.card.name} credits expiring soon`)}`,
+        `DESCRIPTION:${icsEscape(`${displayName(g.card)} credits expiring soon`)}`,
         'TRIGGER:PT9H',
         'END:VALARM',
         'END:VEVENT',

@@ -138,3 +138,24 @@ describe('duplicate cards', () => {
     expect(syncWithCatalog({ ...second, name: 'Gold – Partner' }).name).toBe('Gold – Partner');
   });
 });
+
+describe('combined duplicate cards', () => {
+  it('multiplies credits by the card count', async () => {
+    const { cardFromCatalog, benefitStatus, displayName } = await import('./store');
+    const gold = { ...cardFromCatalog('amex-gold', 1)!, count: 2 };
+    const uber = gold.benefits.find((b) => b.id === 'uber')!;
+    expect(benefitStatus(gold, uber, [], d(2026, 11, 2)).available).toBe(20);
+    expect(displayName(gold)).toBe('Gold Card ×2');
+  });
+
+  it('merges auto-named duplicates and keeps their history', async () => {
+    const { cardFromCatalog, mergeDuplicates, DEFAULT_STATE } = await import('./store');
+    const a = cardFromCatalog('amex-gold', 1)!;
+    const b = cardFromCatalog('amex-gold', 1, [a.name])!;
+    const partner = { ...cardFromCatalog('amex-gold', 1, [a.name, b.name])!, name: 'Gold – Partner' };
+    const usage = [{ id: 'u', cardId: b.id, benefitId: 'uber', periodKey: '2026-11', amount: 10, date: d(2026, 11, 2).toISOString() }];
+    const merged = mergeDuplicates({ ...DEFAULT_STATE, cards: [a, b, partner], usage });
+    expect(merged.cards.map((c) => [c.name, c.count ?? 1])).toEqual([['Gold Card', 2], ['Gold – Partner', 1]]);
+    expect(merged.usage[0].cardId).toBe(a.id);
+  });
+});

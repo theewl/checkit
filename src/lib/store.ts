@@ -22,7 +22,7 @@ export function loadState(): AppState {
       ...parsed,
       settings: { ...DEFAULT_STATE.settings, ...parsed.settings },
     };
-    return { ...state, cards: state.cards.map(syncWithCatalog) };
+    return mergeDuplicates({ ...state, cards: state.cards.map(syncWithCatalog) });
   } catch {
     return DEFAULT_STATE;
   }
@@ -52,6 +52,47 @@ export function syncWithCatalog(card: UserCard): UserCard {
     ...card,
     annualFee: edited.has('__fee') ? card.annualFee : c.annualFee,
     benefits: [...fromCatalog, ...custom],
+  };
+}
+
+export const cardCount = (card: UserCard) => Math.max(1, card.count ?? 1);
+
+/** "Gold Card ×2" when you hold more than one, so combined credits are clearly for multiple cards. */
+export const displayName = (card: UserCard) => (cardCount(card) > 1 ? `${card.name} ×${cardCount(card)}` : card.name);
+
+/**
+ * Fold duplicate catalog cards that were added as separate entries (named "Gold Card",
+ * "Gold Card 2"…) into one card with a count, moving their usage history onto it.
+ * Cards the user renamed are left separate on purpose.
+ */
+export function mergeDuplicates(state: AppState): AppState {
+  const autoNamed = (c: UserCard) => {
+    const base = findCatalogCard(c.catalogId)?.name;
+    return !!base && (c.name === base || new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\d+$`).test(c.name));
+  };
+  const keep = new Map<string, UserCard>();
+  const moved = new Map<string, string>();
+  const cards: UserCard[] = [];
+  for (const c of state.cards) {
+    const key = c.catalogId && autoNamed(c) ? c.catalogId : null;
+    const first = key ? keep.get(key) : undefined;
+    if (first) {
+      first.count = cardCount(first) + cardCount(c);
+      moved.set(c.id, first.id);
+      continue;
+    }
+    const copy = { ...c };
+    if (key) {
+      copy.name = findCatalogCard(key)!.name;
+      keep.set(key, copy);
+    }
+    cards.push(copy);
+  }
+  if (moved.size === 0) return state;
+  return {
+    ...state,
+    cards,
+    usage: state.usage.map((u) => (moved.has(u.cardId) ? { ...u, cardId: moved.get(u.cardId)! } : u)),
   };
 }
 
@@ -110,7 +151,7 @@ export function benefitStatus(
 ): BenefitStatus {
   if (benefit.everyYears) return multiYearStatus(card, benefit, usage, today);
   const period = getBenefitPeriod(benefit, today, card.anniversaryMonth);
-  const available = amountFor(benefit, today);
+  const available = round2(amountFor(benefit, today) * cardCount(card));
   const entries = usage.filter(
     (u) => u.cardId === card.id && u.benefitId === benefit.id && u.periodKey === period.key,
   );
@@ -148,7 +189,7 @@ function multiYearStatus(card: UserCard, benefit: Benefit, usage: UsageEntry[], 
   const t = day(today);
   const active = start && cycleEnd(start) >= t ? start : null;
   const entries = active ? mine.filter((e) => day(new Date(e.date)) >= active) : [];
-  const available = benefit.amount;
+  const available = round2(benefit.amount * cardCount(card));
   const used = Math.min(available, round2(entries.reduce((s, e) => s + e.amount, 0)));
   const periodStart = active ?? t;
   const end = cycleEnd(periodStart);

@@ -124,3 +124,7 @@ label { display: flex; flex-direction: column; gap: 5px; font-size: 0.9rem; }
 .setting-block { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .setting-block p { margin: 0 0 6px; line-height: 1.45; }
 .notice { background: var(--warn-bg); border-radius: 10px; padding: 10px; margin: 0; }
+
+.count-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.9rem; }
+.stepper { display: flex; align-items: center; gap: 12px; }
+.stepper .btn { width: 36px; padding: 6px 0; font-size: 1.1rem; }
