@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cardCount, displayName, money, type BenefitStatus } from '../lib/store';
+import { cardCount, displayName, isDone, money, type BenefitStatus } from '../lib/store';
 
 interface Props {
   status: BenefitStatus;
@@ -17,12 +17,17 @@ export function CreditRow({ status, remindDays, showCard = true, onLog, onClear 
   const { benefit, card, used, available, remaining, daysLeft, period, entries } = status;
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
-  const done = remaining <= 0;
+  const done = isDone(status);
   const urgent = !done && daysLeft <= remindDays;
   const noDeadline = daysLeft > 100_000;
 
   const nextReset = new Date(period.end.getFullYear(), period.end.getMonth(), period.end.getDate() + 1);
-  const when = done
+  const once = !!benefit.oneTime;
+  const when = once && done
+    ? 'Activated'
+    : once && noDeadline
+      ? 'Activate once'
+      : done
     ? `Resets ${shortDate(nextReset)}`
     : noDeadline
       ? 'No deadline'
@@ -62,7 +67,7 @@ export function CreditRow({ status, remindDays, showCard = true, onLog, onClear 
         </button>
         <span className="credit-amt">
           {benefit.estimated ? '~' : ''}
-          {money(done ? available : remaining)}
+          {available < 0.01 ? (done ? '✓' : 'Enroll') : money(done ? available : remaining)}
         </span>
       </div>
 
@@ -83,9 +88,9 @@ export function CreditRow({ status, remindDays, showCard = true, onLog, onClear 
           )}
           {benefit.howTo && <p>{benefit.howTo}</p>}
           <p className="muted">
-            {money(used)} of {money(available)} used · resets {shortDate(nextReset)}
+            {once ? (done ? 'Activated — nothing more to do.' : period.label) : `${money(used)} of ${money(available)} used · resets ${shortDate(nextReset)}`}
           </p>
-          {!done && (
+          {!done && !once && (
             <form
               className="partial"
               onSubmit={(e) => {

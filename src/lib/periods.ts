@@ -97,6 +97,7 @@ export function daysLeft(period: Period, today: Date): number {
 
 /** Value of a benefit over a full year, for "annual value vs. fee" math. */
 export function yearlyValue(benefit: Benefit): number {
+  if (benefit.oneTime) return 0;
   if (benefit.everyYears) return benefit.amount / benefit.everyYears;
   switch (benefit.frequency) {
     case 'monthly': {

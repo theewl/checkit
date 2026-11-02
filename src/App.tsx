@@ -4,7 +4,7 @@ import { CreditRow } from './components/CreditRow';
 import { EditCard } from './components/EditCard';
 import { Settings } from './components/Settings';
 import { sendDueNotifications } from './lib/reminders';
-import { allStatuses, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
+import { allStatuses, isDone, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
 import type { UserCard } from './types';
 
 export default function App() {
@@ -37,9 +37,9 @@ export default function App() {
   const all = useMemo(() => allStatuses(state, today), [state, today]);
   const shown = filter ? all.filter((s) => s.card.id === filter) : all;
   const todo = shown
-    .filter((s) => s.remaining > 0)
+    .filter((s) => !isDone(s))
     .sort((a, b) => a.daysLeft - b.daysLeft || b.remaining - a.remaining);
-  const done = shown.filter((s) => s.remaining <= 0);
+  const done = shown.filter(isDone);
 
   const left = shown.reduce((s, x) => s + x.remaining, 0);
   const total = shown.reduce((s, x) => s + x.available, 0);

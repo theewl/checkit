@@ -26,6 +26,11 @@ export interface Benefit {
    * use it, so frequency/resetBasis are ignored when this is set.
    */
   everyYears?: number;
+  /**
+   * A perk you activate or enroll in once (e.g. free Apple TV+). It never resets; after
+   * you check it off it stays done. `endsAfter` doubles as the activation deadline.
+   */
+  oneTime?: boolean;
   /** Last day the credit exists (YYYY-MM-DD), for limited-time credits. Hidden after that. */
   endsAfter?: string;
   /** A certificate or perk with an estimated value (e.g. a free night), not a fixed statement credit. */
