@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { AddCard } from './components/AddCard';
 import { CreditRow } from './components/CreditRow';
 import { EditCard } from './components/EditCard';
+import { ImportStatement } from './components/ImportStatement';
 import { Settings } from './components/Settings';
 import { sendDueNotifications } from './lib/reminders';
-import { allStatuses, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
+import { allStatuses, isDone, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
 import type { UserCard } from './types';
 
 export default function App() {
   const [state, update] = useAppState();
   const [adding, setAdding] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -33,12 +35,13 @@ export default function App() {
   }, [state, today, update]);
 
   const remindDays = state.settings.remindDaysBefore;
+  const sortBy = state.settings.sortBy ?? 'card';
   const all = useMemo(() => allStatuses(state, today), [state, today]);
   const shown = filter ? all.filter((s) => s.card.id === filter) : all;
   const todo = shown
-    .filter((s) => s.remaining > 0)
+    .filter((s) => !isDone(s))
     .sort((a, b) => a.daysLeft - b.daysLeft || b.remaining - a.remaining);
-  const done = shown.filter((s) => s.remaining <= 0);
+  const done = shown.filter(isDone);
 
   const left = shown.reduce((s, x) => s + x.remaining, 0);
   const total = shown.reduce((s, x) => s + x.available, 0);
@@ -130,15 +133,58 @@ export default function App() {
             </div>
           )}
 
-          <h2 className="section">To use</h2>
-          {todo.length > 0 ? (
+          <div className="section list-head">
+            <h2>To use</h2>
+            <div className="toggle" role="group" aria-label="Order credits">
+              {(['card', 'due'] as const).map((k) => (
+                <button
+                  key={k}
+                  className={sortBy === k ? 'active' : ''}
+                  onClick={() => update((st) => ({ ...st, settings: { ...st.settings, sortBy: k } }))}
+                >
+                  {k === 'card' ? 'By card' : 'Due soon'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {todo.length === 0 ? (
+            <p className="muted center">All used. Nice! 🎉</p>
+          ) : sortBy === 'due' ? (
             <ul className="credits">
               {todo.map((s) => (
                 <CreditRow key={`${s.card.id}:${s.benefit.id}`} status={s} remindDays={remindDays} onLog={(a) => log(s, a)} onClear={clear} />
               ))}
             </ul>
           ) : (
-            <p className="muted center">All used. Nice! 🎉</p>
+            state.cards
+              .map((card) => ({ card, items: todo.filter((s) => s.card.id === card.id) }))
+              .filter((g) => g.items.length > 0)
+              .map(({ card, items }) => (
+                <section key={card.id} className="card-group">
+                  <div className="card-head">
+                    <span className="dot" style={{ background: card.color }} />
+                    <strong className="grow">
+                      {displayName(card)}{' '}
+                      {items.some((s) => s.daysLeft <= remindDays) && (
+                        <span className="urgent-count">{items.filter((s) => s.daysLeft <= remindDays).length} expiring</span>
+                      )}
+                    </strong>
+                    <span className="muted small">{money(items.reduce((s, x) => s + x.remaining, 0))} left</span>
+                  </div>
+                  <ul className="credits">
+                    {items.map((s) => (
+                      <CreditRow
+                        key={`${s.card.id}:${s.benefit.id}`}
+                        status={s}
+                        showCard={false}
+                        remindDays={remindDays}
+                        onLog={(a) => log(s, a)}
+                        onClear={clear}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))
           )}
 
           {done.length > 0 && (
@@ -186,6 +232,15 @@ export default function App() {
               />
             ) : (
               <>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setImporting(true);
+                  }}
+                >
+                  Import statement (CSV)
+                </button>
                 <h3>Your cards</h3>
                 <ul className="card-list">
                   {state.cards.map((c) => (
@@ -205,6 +260,24 @@ export default function App() {
         </div>
       )}
 
+      {importing && (
+        <ImportStatement
+          cards={state.cards}
+          existingIds={new Set(state.usage.map((u) => u.id))}
+          onClose={() => setImporting(false)}
+          onImport={(cardId, entries, anniversaryMonth) => {
+            update((st) => {
+              const have = new Set(st.usage.map((u) => u.id));
+              return {
+                ...st,
+                usage: [...st.usage, ...entries.filter((e) => !have.has(e.id))],
+                cards: anniversaryMonth ? st.cards.map((c) => (c.id === cardId ? { ...c, anniversaryMonth } : c)) : st.cards,
+              };
+            });
+            setImporting(false);
+          }}
+        />
+      )}
       {adding && (
         <AddCard
           ownedCatalogIds={state.cards.map((c) => c.catalogId ?? '')}

@@ -1,10 +1,10 @@
 import type { AppState, Frequency, UserCard } from '../types';
-import { allStatuses, cardCount, displayName, isActive, money, type BenefitStatus } from './store';
+import { allStatuses, isDone, cardCount, displayName, isActive, money, type BenefitStatus } from './store';
 
 /** Benefits with money left whose period ends within `days` days. Soonest first. */
 export function expiringSoon(statuses: BenefitStatus[], days: number): BenefitStatus[] {
   return statuses
-    .filter((s) => s.remaining > 0 && s.daysLeft <= days)
+    .filter((s) => !isDone(s) && s.daysLeft <= days)
     .sort((a, b) => a.daysLeft - b.daysLeft || b.remaining - a.remaining);
 }
 
@@ -111,7 +111,7 @@ export function buildIcs(state: AppState, today: Date): string {
   for (const card of state.cards) {
     for (const b of card.benefits) {
       // Multi-year credits have no fixed reset date to remind about.
-      if (card.hiddenBenefitIds.includes(b.id) || b.everyYears || !isActive(b, today)) continue;
+      if (card.hiddenBenefitIds.includes(b.id) || b.everyYears || b.oneTime || !isActive(b, today)) continue;
       const anniversary = b.frequency === 'annual' && b.resetBasis === 'anniversary';
       const key = `${card.id}|${b.frequency}|${anniversary}`;
       if (!groups.has(key)) groups.set(key, { card, frequency: b.frequency, anniversary, lines: [] });

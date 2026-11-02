@@ -96,7 +96,7 @@ describe('catalog', () => {
     expect(new Set(CATALOG.map((c) => c.id)).size).toBe(CATALOG.length);
     for (const c of CATALOG) {
       expect(new Set(c.benefits.map((b) => b.id)).size, c.id).toBe(c.benefits.length);
-      for (const b of c.benefits) expect(b.amount, `${c.id}/${b.id}`).toBeGreaterThan(0);
+      for (const b of c.benefits) expect(b.amount, `${c.id}/${b.id}`).toBeGreaterThanOrEqual(b.oneTime ? 0 : 0.01);
     }
   });
 
@@ -119,7 +119,7 @@ describe('catalog', () => {
       ],
     };
     const synced = syncWithCatalog(card);
-    expect(synced.benefits.map((b) => b.id)).toEqual(['hotel', 'global-entry', 'custom-1']);
+    expect(synced.benefits.map((b) => b.id)).toEqual(['hotel', 'apple', 'dashpass', 'global-entry', 'custom-1']);
     expect(synced.benefits[0].amount).toBe(100);
     const kept = syncWithCatalog({ ...card, editedIds: ['hotel'] });
     expect(kept.benefits[0].amount).toBe(50);
@@ -157,5 +157,32 @@ describe('combined duplicate cards', () => {
     const merged = mergeDuplicates({ ...DEFAULT_STATE, cards: [a, b, partner], usage });
     expect(merged.cards.map((c) => [c.name, c.count ?? 1])).toEqual([['Gold Card', 2], ['Gold – Partner', 1]]);
     expect(merged.usage[0].cardId).toBe(a.id);
+  });
+});
+
+describe('activate-once perks', () => {
+  it('stays done once checked off and never resets', async () => {
+    const { cardFromCatalog, benefitStatus, isDone } = await import('./store');
+    const csr = cardFromCatalog('chase-sapphire-reserve', 1)!;
+    const apple = csr.benefits.find((b) => b.id === 'apple')!;
+    expect(isDone(benefitStatus(csr, apple, [], d(2026, 11, 2)))).toBe(false);
+    const usage = [{ id: 'u', cardId: csr.id, benefitId: 'apple', periodKey: 'once', amount: 288, date: d(2026, 11, 2).toISOString() }];
+    expect(isDone(benefitStatus(csr, apple, usage, d(2027, 3, 1)))).toBe(true);
+  });
+
+  it('counts a $0 enrollment as done when checked', async () => {
+    const { cardFromCatalog, benefitStatus, isDone } = await import('./store');
+    const plat = cardFromCatalog('amex-platinum', 1)!;
+    const pp = plat.benefits.find((b) => b.id === 'priority-pass')!;
+    const usage = [{ id: 'u', cardId: plat.id, benefitId: 'priority-pass', periodKey: 'once', amount: 0, date: d(2026, 11, 2).toISOString() }];
+    expect(isDone(benefitStatus(plat, pp, [], d(2026, 11, 2)))).toBe(false);
+    expect(isDone(benefitStatus(plat, pp, usage, d(2026, 11, 2)))).toBe(true);
+  });
+
+  it('shows a deadline for Sapphire Preferred Apple TV', async () => {
+    const { cardFromCatalog, benefitStatus } = await import('./store');
+    const csp = cardFromCatalog('chase-sapphire-preferred', 1)!;
+    const apple = csp.benefits.find((b) => b.id === 'apple')!;
+    expect(benefitStatus(csp, apple, [], d(2026, 12, 25)).daysLeft).toBe(6);
   });
 });

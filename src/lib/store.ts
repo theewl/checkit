@@ -150,6 +150,7 @@ export function benefitStatus(
   today: Date,
 ): BenefitStatus {
   if (benefit.everyYears) return multiYearStatus(card, benefit, usage, today);
+  if (benefit.oneTime) return oneTimeStatus(card, benefit, usage, today);
   const period = getBenefitPeriod(benefit, today, card.anniversaryMonth);
   const available = round2(amountFor(benefit, today) * cardCount(card));
   const entries = usage.filter(
@@ -214,6 +215,31 @@ function multiYearStatus(card: UserCard, benefit: Benefit, usage: UsageEntry[], 
   };
 }
 
+/** Activate-once perks: done forever once checked off; due by `endsAfter` if set. */
+function oneTimeStatus(card: UserCard, benefit: Benefit, usage: UsageEntry[], today: Date): BenefitStatus {
+  const entries = usage.filter((u) => u.cardId === card.id && u.benefitId === benefit.id);
+  const deadline = benefit.endsAfter ? new Date(`${benefit.endsAfter}T00:00:00`) : null;
+  const period: Period = {
+    key: 'once',
+    start: new Date(2000, 0, 1),
+    end: deadline ?? new Date(9999, 0, 1),
+    label: deadline ? `Activate by ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Activate once',
+  };
+  // Checked off = done, whatever amount was logged (some perks have no dollar value).
+  const done = entries.length > 0;
+  const available = round2(benefit.amount * cardCount(card));
+  return {
+    card,
+    benefit,
+    period,
+    available,
+    used: done ? available : 0,
+    remaining: done ? 0 : available,
+    daysLeft: deadline ? daysLeft(period, today) : Number.MAX_SAFE_INTEGER,
+    entries,
+  };
+}
+
 /** False once a limited-time credit's last day has passed. */
 export function isActive(b: Benefit, today: Date): boolean {
   if (!b.endsAfter) return true;
@@ -228,6 +254,9 @@ export function allStatuses(state: AppState, today: Date): BenefitStatus[] {
       .map((b) => benefitStatus(card, b, state.usage, today)),
   );
 }
+
+/** Whether a credit is used up for now. Activate-once perks count as done once checked off. */
+export const isDone = (s: BenefitStatus) => (s.benefit.oneTime ? s.entries.length > 0 : s.remaining <= 0);
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
