@@ -95,4 +95,6 @@ export interface AppState {
   settings: Settings;
   /** Period keys already notified, so each reminder fires once. */
   notified: string[];
+  /** Statement files already imported (card id + file hash), so they aren't counted twice. */
+  importedFiles?: string[];
 }

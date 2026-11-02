@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AddCard } from './components/AddCard';
 import { CreditRow } from './components/CreditRow';
 import { EditCard } from './components/EditCard';
+import { ImportStatement } from './components/ImportStatement';
 import { Settings } from './components/Settings';
 import { sendDueNotifications } from './lib/reminders';
 import { allStatuses, isDone, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
@@ -11,6 +12,7 @@ export default function App() {
   const [state, update] = useAppState();
   const [adding, setAdding] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -230,6 +232,15 @@ export default function App() {
               />
             ) : (
               <>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setImporting(true);
+                  }}
+                >
+                  Import statement (CSV)
+                </button>
                 <h3>Your cards</h3>
                 <ul className="card-list">
                   {state.cards.map((c) => (
@@ -249,6 +260,25 @@ export default function App() {
         </div>
       )}
 
+      {importing && (
+        <ImportStatement
+          cards={state.cards}
+          importedFiles={state.importedFiles ?? []}
+          onClose={() => setImporting(false)}
+          onImport={(entries, fileId, anniversaryMonth) => {
+            update((st) => ({
+              ...st,
+              usage: [...st.usage, ...entries],
+              importedFiles: [...(st.importedFiles ?? []), fileId],
+              cards:
+                anniversaryMonth
+                  ? st.cards.map((c) => (c.id === fileId.split(':')[0] ? { ...c, anniversaryMonth } : c))
+                  : st.cards,
+            }));
+            setImporting(false);
+          }}
+        />
+      )}
       {adding && (
         <AddCard
           ownedCatalogIds={state.cards.map((c) => c.catalogId ?? '')}

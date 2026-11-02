@@ -142,3 +142,10 @@ label { display: flex; flex-direction: column; gap: 5px; font-size: 0.9rem; }
 .credit.urgent .credit-amt { color: var(--warn); }
 .credit.urgent .mini-bar > div { background: var(--warn); }
 .urgent-count { background: var(--warn); color: #fff; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+
+/* Statement import */
+.file-pick { align-items: flex-start; }
+.import-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.import-list li { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.howto-list { padding-left: 18px; line-height: 1.5; }
+label.notice { flex-direction: row; align-items: flex-start; gap: 10px; }
