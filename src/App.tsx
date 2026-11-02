@@ -4,7 +4,7 @@ import { CreditRow } from './components/CreditRow';
 import { EditCard } from './components/EditCard';
 import { Settings } from './components/Settings';
 import { sendDueNotifications } from './lib/reminders';
-import { allStatuses, cardFromCatalog, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
+import { allStatuses, cardCount, cardFromCatalog, displayName, money, round2, uid, useAppState, type BenefitStatus } from './lib/store';
 import type { UserCard } from './types';
 
 export default function App() {
@@ -124,7 +124,7 @@ export default function App() {
               {state.cards.map((c) => (
                 <button key={c.id} className={filter === c.id ? 'active' : ''} onClick={() => setFilter(c.id)}>
                   <span className="dot" style={{ background: c.color }} />
-                  {c.name}
+                  {displayName(c)}
                 </button>
               ))}
             </div>
@@ -192,7 +192,7 @@ export default function App() {
                     <li key={c.id}>
                       <button onClick={() => setEditingId(c.id)}>
                         <span className="dot" style={{ background: c.color }} />
-                        <span className="grow">{c.name}</span>
+                        <span className="grow">{displayName(c)}</span>
                         <span className="muted small">Edit ›</span>
                       </button>
                     </li>
@@ -209,7 +209,16 @@ export default function App() {
         <AddCard
           ownedCatalogIds={state.cards.map((c) => c.catalogId ?? '')}
           onClose={() => setAdding(false)}
-          onAdd={(id, month) => {
+          onAdd={(id, month, mode) => {
+            const existing = state.cards.find((c) => c.catalogId === id);
+            if (existing && mode !== 'separate') {
+              update((st) => ({
+                ...st,
+                cards: st.cards.map((c) => (c.id === existing.id ? { ...c, count: cardCount(c) + 1 } : c)),
+              }));
+              setAdding(false);
+              return;
+            }
             const card = cardFromCatalog(id, month, state.cards.map((c) => c.name));
             if (card) addCard(card);
           }}

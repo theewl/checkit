@@ -7,7 +7,8 @@ import { MONTH_NAMES } from './util';
 
 interface Props {
   ownedCatalogIds: string[];
-  onAdd: (catalogId: string, anniversaryMonth: number) => void;
+  /** combine = add to the existing card's count; separate = a new, independently tracked entry. */
+  onAdd: (catalogId: string, anniversaryMonth: number, mode?: 'combine' | 'separate') => void;
   onAddCustom: (card: UserCard) => void;
   onClose: () => void;
 }
@@ -77,10 +78,11 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
               <div className="add-confirm">
                 {ownedCatalogIds.includes(selected) && (
                   <p className="notice small">
-                    You already added this card. Add another one (for example a second account or a partner's card)?
+                    You already have this card. Add a second one? Its credits are combined with your existing card and
+                    shown as ×2.
                   </p>
                 )}
-                {needsAnniversary(selected) && (
+                {needsAnniversary(selected) && !ownedCatalogIds.includes(selected) && (
                   <label>
                     When did you open this card? (month)
                     <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
@@ -93,9 +95,20 @@ export function AddCard({ ownedCatalogIds, onAdd, onAddCustom, onClose }: Props)
                     <span className="muted small">Some of this card's credits reset on your card anniversary.</span>
                   </label>
                 )}
-                <button className="btn" onClick={() => onAdd(selected, month)}>
-                  {ownedCatalogIds.includes(selected) ? 'Add another' : 'Add card'}
-                </button>
+                {ownedCatalogIds.includes(selected) ? (
+                  <>
+                    <button className="btn" onClick={() => onAdd(selected, month, 'combine')}>
+                      Add another (combine credits)
+                    </button>
+                    <button className="link small" onClick={() => onAdd(selected, month, 'separate')}>
+                      Track it separately instead (e.g. a partner's card)
+                    </button>
+                  </>
+                ) : (
+                  <button className="btn" onClick={() => onAdd(selected, month)}>
+                    Add card
+                  </button>
+                )}
               </div>
             )}
 

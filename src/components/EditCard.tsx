@@ -56,6 +56,23 @@ export function EditCard({
         Card name
         <input value={card.name} onChange={(e) => onChange({ ...card, name: e.target.value })} placeholder="e.g. Gold – Mine" />
       </label>
+      <div className="count-row">
+        <span>How many of this card do you have?</span>
+        <div className="stepper">
+          <button
+            className="btn ghost small"
+            aria-label="One fewer"
+            disabled={(card.count ?? 1) <= 1}
+            onClick={() => onChange({ ...card, count: Math.max(1, (card.count ?? 1) - 1) })}
+          >
+            −
+          </button>
+          <strong>{card.count ?? 1}</strong>
+          <button className="btn ghost small" aria-label="One more" onClick={() => onChange({ ...card, count: (card.count ?? 1) + 1 })}>
+            +
+          </button>
+        </div>
+      </div>
       <label>
         Account anniversary month
         <select value={card.anniversaryMonth} onChange={(e) => onChange({ ...card, anniversaryMonth: Number(e.target.value) })}>

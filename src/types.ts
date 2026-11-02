@@ -59,6 +59,8 @@ export interface UserCard {
   anniversaryMonth: number;
   benefits: Benefit[];
   hiddenBenefitIds: string[];
+  /** How many of this card you hold (default 1). Credits are multiplied and tracked together. */
+  count?: number;
   /** Catalog benefit ids (and '__fee') the user edited, which catalog updates must not overwrite. */
   editedIds?: string[];
 }
